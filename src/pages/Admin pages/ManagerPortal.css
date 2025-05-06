@@ -1,0 +1,77 @@
+/* Additional custom styles that can't be easily done with Tailwind */
+  :root {
+      --neon-purple: #bc13fe;
+      --neon-green: #0ffc7e;
+      --neon-blue: #00f7ff;
+      --neon-yellow: #f5d90a;
+      --neon-pink: #ff00ff;
+    }
+  
+    /* Animation classes */
+    .animate-float {
+      animation: float 3s ease-in-out infinite;
+    }
+  
+    @keyframes float {
+      0%, 100% {
+        transform: translateY(0);
+      }
+      50% {
+        transform: translateY(-10px);
+      }
+    }
+  
+    /* Custom scrollbar */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+  
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 10px;
+    }
+  
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #c1c1c1;
+      border-radius: 10px;
+    }
+  
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #a8a8a8;
+    }
+  
+    /* Smooth transitions */
+    .smooth-transition {
+      transition: all 0.3s ease;
+    }
+  
+    /* Custom tooltip */
+    .tooltip {
+      position: relative;
+      display: inline-block;
+    }
+  
+    .tooltip .tooltip-text {
+      visibility: hidden;
+      width: 120px;
+      background-color: #555;
+      color: #fff;
+      text-align: center;
+      border-radius: 6px;
+      padding: 5px;
+      position: absolute;
+      z-index: 1;
+      bottom: 125%;
+      left: 50%;
+      margin-left: -60px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+  
+    .tooltip:hover .tooltip-text {
+      visibility: visible;
+      opacity: 1;
+    }
+
+  
