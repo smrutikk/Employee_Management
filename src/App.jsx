@@ -15,6 +15,11 @@ import { TaskManagement } from './pages/TeamOverview subpages/TaskManagement';
 import OnboardingExit from './pages/Admin pages/Onbording';
 import SystemSettings from './pages/Admin pages/SystemSettings';
 import { RequireAuth } from './components/RequireAuth';
+import LeaveRequest from './pages/Employee pages/LeaveRequest';
+import TimeTracker from './pages/Employee pages/TimeTracker'; 
+import ObjectivesPage from './pages/Employee pages/Objectives';
+import FeedbackPortal from './pages/Employee pages/FeedbackPortal';
+import EmployeeSettings from './pages/Employee pages/Settings';
 
 function App() {
   const [count, setCount] = useState(0)
@@ -36,6 +41,12 @@ function App() {
         <Route path='/onbording' element={<OnboardingExit />} />
         <Route path='/settings' element= { <RequireAuth requiredRole="Admin"> <SystemSettings /> </RequireAuth>} />
 
+        {/*Emplyee pages Routing */}
+        <Route path='/apply-leave' element={<LeaveRequest />} />
+        <Route path='/time-tracker' element={<TimeTracker />} />
+        <Route path='/my-tasks' element={<ObjectivesPage />} />
+        <Route path='/feedback' element={<FeedbackPortal />} />
+        <Route path='/emp-settings' element={<EmployeeSettings/>} />
         {/* Add more routes as needed */}
       </Routes>
     </Router>

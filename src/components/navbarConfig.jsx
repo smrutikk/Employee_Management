@@ -19,15 +19,16 @@ export const roleBasedNavigation = {
       { label: 'Team Overview', path: '/my-team', icon: <FaUsers /> },
       { label: 'Onboarding', path: '/onbording', icon: <FaUserPlus /> },
       { label: 'Task Manager', path: '/assign-tasks', icon: <FaTasks />},
+      { label: 'Settings', path: '/settings', icon: <FaCog/> },
   ],
   Employee: [
       { label: 'Time Tracker', path: '/time-tracker', icon: <FaUserCheck />},
       { label: 'Leave Request', path: '/apply-leave', icon: <FaClipboardList />},
       { label: 'My Objectives', path: '/my-tasks', icon: <FaTasks />},
       { label: 'Feedback Portal', path: '/feedback', icon: <FaCommentAlt /> },
+      { label: 'Settings', path: '/emp-settings', icon: <FaCog/> },
   ],
   commonEnd: [
-      { label: 'Settings', path: '/settings', icon: <FaCog/> },
       { label: 'Logout', path: '/logout', icon: <FaSignOutAlt /> }
   ]
 };
