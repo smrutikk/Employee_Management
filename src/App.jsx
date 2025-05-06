@@ -20,6 +20,7 @@ import TimeTracker from './pages/Employee pages/TimeTracker';
 import ObjectivesPage from './pages/Employee pages/Objectives';
 import FeedbackPortal from './pages/Employee pages/FeedbackPortal';
 import EmployeeSettings from './pages/Employee pages/Settings';
+import NotificationsPage from './pages/Employee pages/Em_Notification';
 
 function App() {
   const [count, setCount] = useState(0)
@@ -47,6 +48,7 @@ function App() {
         <Route path='/my-tasks' element={<ObjectivesPage />} />
         <Route path='/feedback' element={<FeedbackPortal />} />
         <Route path='/emp-settings' element={<EmployeeSettings/>} />
+        <Route path='/em_notifications' element={<NotificationsPage />} />
         {/* Add more routes as needed */}
       </Routes>
     </Router>
