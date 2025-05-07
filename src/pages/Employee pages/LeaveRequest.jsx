@@ -10,7 +10,8 @@ const LeaveRequest = () => {
     endDate: '',
     duration: 'fullDay',
     reason: '',
-    attachment: null
+    attachment: null,
+    managerEmail: '' 
   });
 
   const [errors, setErrors] = useState({});
@@ -37,6 +38,11 @@ const LeaveRequest = () => {
     if (!formData.endDate) newErrors.endDate = 'End date is required';
     if (new Date(formData.endDate) < new Date(formData.startDate)) {
       newErrors.endDate = 'End date cannot be before start date';
+    }
+    if (!formData.managerEmail) {
+      newErrors.managerEmail = 'Manager email is required';
+    } else if (!/\S+@\S+\.\S+/.test(formData.managerEmail)) {
+      newErrors.managerEmail = 'Invalid email format';
     }
     if (!formData.reason) newErrors.reason = 'Reason is required';
     setErrors(newErrors);
@@ -66,7 +72,8 @@ const LeaveRequest = () => {
         endDate: '',
         duration: 'fullDay',
         reason: '',
-        attachment: null
+        attachment: null,
+        managerEmail: '' 
       });
     } catch (error) {
       console.error('Error submitting leave request:', error);
@@ -187,6 +194,25 @@ const LeaveRequest = () => {
                   )}
                 </div>
               </div>
+              
+              <div className="md:col-span-2 space-y-2">
+  <label className="block text-sm font-medium text-gray-300">
+    Assigned Manager Email <span className="text-red-500">*</span>
+  </label>
+  <input
+    type="email"
+    name="managerEmail"
+    value={formData.managerEmail}
+    onChange={handleChange}
+    placeholder="Enter manager's email address"
+    className={`w-full bg-gray-700 border ${
+      errors.managerEmail ? 'border-red-500' : 'border-gray-600'
+    } rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent`}
+  />
+  {errors.managerEmail && (
+    <p className="mt-1 text-sm text-red-400">{errors.managerEmail}</p>
+  )}
+</div>
 
               {/* Reason */}
               <div className="space-y-2">
