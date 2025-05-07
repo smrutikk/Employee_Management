@@ -1,10 +1,8 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { NavLink } from 'react-router-dom';
-import { useLocation } from 'react-router-dom';
-import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
-import { coreNavigation, roleBasedNavigation } from '../components/navbarConfig'; // Adjust the import path as necessary
-
+import { NavLink, useLocation } from 'react-router-dom';
+import { FaChevronLeft, FaChevronRight} from 'react-icons/fa';
+import { coreNavigation, roleBasedNavigation } from '../components/navbarConfig';
 
 export default function Navbar() {
   const [isNavOpen, setIsNavOpen] = useState(true);
@@ -12,11 +10,9 @@ export default function Navbar() {
   const storedRole = localStorage.getItem('role') || 'Employee';
   const role = storedRole.charAt(0).toUpperCase() + storedRole.slice(1).toLowerCase();
   
-  // Get saved permissions from localStorage
   const savedPermissions = localStorage.getItem('rolesPermissions');
   const rolesPermissions = savedPermissions ? JSON.parse(savedPermissions) : {};
-  
-  // Filter navigation links based on permissions
+
   const getFilteredNavLinks = () => {
     const allLinks = [
       ...coreNavigation,
@@ -25,9 +21,9 @@ export default function Navbar() {
     ];
     
     if (rolesPermissions[role.toLowerCase()]) {
-      const allowedPages = rolesPermissions[role.toLowerCase()].pages;
+      const allowedPages = new Set(rolesPermissions[role.toLowerCase()].pages);
       return allLinks.filter(link => 
-        allowedPages.includes(link.label) || 
+        allowedPages.has(link.label) || 
         link.path === '/logout'
       );
     }
@@ -47,14 +43,6 @@ export default function Navbar() {
       <div className="flex-grow space-y-4 relative">
         {navLinks.map((item, idx) => (
           <div key={idx}>
-            {/* Section Headings */}
-            {item.section && isNavOpen && (
-              <h3 className="text-xs uppercase text-blue-300 mt-4 mb-2 tracking-wider">
-                {item.section}
-              </h3>
-            )}
-
-            {/* Navigation Items */}
             <NavLink
               to={item.path}
               className={({ isActive }) =>
@@ -80,7 +68,6 @@ export default function Navbar() {
         ))}
       </div>
 
-      {/* Toggle Button */}
       <button
         onClick={() => setIsNavOpen(!isNavOpen)}
         className="mt-auto p-3 rounded-lg hover:bg-blue-700/30 text-blue-200 hover:text-white transition-colors"

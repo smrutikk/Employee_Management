@@ -1,52 +1,56 @@
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../../components/Navbar';
-import { navLinks } from '../../components/navbarConfig';
 import { FiSettings, FiUsers, FiLock, FiCheckSquare, FiChevronDown, FiSave } from 'react-icons/fi';
 
 const SystemSettings = () => {
-  const user = "admin";
   const navigate = useNavigate();
   const [userRole, setUserRole] = useState('Employee');
   const [activeTab, setActiveTab] = useState('accessControl');
   const [expandedRoles, setExpandedRoles] = useState({});
 
-
   const [rolesPermissions, setRolesPermissions] = useState(() => {
-  const savedPermissions = localStorage.getItem('rolesPermissions');
-  return savedPermissions ? JSON.parse(savedPermissions) : {
-    admin: {
-      pages: ['Dashboard','Calendar','Notifications','Leave Management',
-        'Attendance', 'Team Overview', 'Onboarding', 'Task Manager', 
-        'Settings'],
-      editable: true
-    },
-    employee: {
-      pages: ['Dashboard','Calendar','Notifications','Time Tracker',
-        'Leave Request', 'My Objectives', 'Feedback Portal', 'Settings'],
-      editable: true
-    }
-  };
-})
+    const savedPermissions = localStorage.getItem('rolesPermissions');
+    return savedPermissions ? JSON.parse(savedPermissions) : {
+      admin: {
+        pages: [
+          'Dashboard', 'Calendar', 'Notifications', 'Leave Management',
+          'Attendance', 'Team Overview', 'Onboarding', 'Task Manager',
+          'Settings', 'Time Tracker', 'Leave Request', 'My Objectives',
+          'Feedback Portal'
+        ],
+        editable: true
+      },
+      employee: {
+        pages: [
+          'Dashboard', 'Calendar', 'Notifications', 'Time Tracker',
+          'Leave Request', 'My Objectives', 'Feedback Portal', 'Settings'
+        ],
+        editable: true
+      }
+    };
+  });
 
-useEffect(() => {
-  const storedRole = localStorage.getItem('role') || 'Employee';
-  const formattedRole = storedRole.charAt(0).toUpperCase() + storedRole.slice(1).toLowerCase();
-  setUserRole(formattedRole);
-}, []);
+  useEffect(() => {
+    const storedRole = localStorage.getItem('role') || 'Employee';
+    const formattedRole = storedRole.charAt(0).toUpperCase() + storedRole.slice(1).toLowerCase();
+    setUserRole(formattedRole);
+  }, []);
 
-  const allPages = ['Dashboard','Calendar','Notifications','Leave Management',
-        'Attendance', 'Team Overview', 'Onboarding', 'Task Manager', 
-        'Settings','Time Tracker',
-        'Leave Request', 'My Objectives', 'Feedback Portal'];
+  const allPages = [
+    'Dashboard', 'Calendar', 'Notifications', 'Leave Management',
+    'Attendance', 'Team Overview', 'Onboarding', 'Task Manager',
+    'Settings', 'Time Tracker', 'Leave Request', 'My Objectives',
+    'Feedback Portal'
+  ];
 
   // Verify admin access
   useEffect(() => {
     if (userRole !== 'Admin') {
       navigate('/settings');
     }
-  }, [userRole]);
+  }, [userRole, navigate]);
 
   if (userRole !== 'Admin') return null;
 
@@ -55,34 +59,22 @@ useEffect(() => {
   };
 
   const handlePermissionChange = (role, page, checked) => {
-    if (!rolesPermissions[role].editable) return;
-
     setRolesPermissions(prev => ({
       ...prev,
       [role]: {
         ...prev[role],
-        pages: checked 
+        pages: checked
           ? [...prev[role].pages, page]
           : prev[role].pages.filter(p => p !== page)
       }
     }));
   };
 
-  const savePermissions = async () => {
+  const savePermissions = () => {
     try {
       localStorage.setItem('rolesPermissions', JSON.stringify(rolesPermissions));
-      // API call to save permissions
-    //  const response = await fetch('/api/roles/permissions', {
-      //  method: 'PUT',
-      //  headers: {
-      //    'Content-Type': 'application/json',
-      //    'Authorization': `Bearer ${user.token}`
-       // },
-       // body: JSON.stringify(rolesPermissions)
-     // });
-
-      //if (!response.ok) throw new Error('Failed to save permissions');
       alert('Permissions updated successfully!');
+      window.location.reload(); // Refresh to see changes
     } catch (error) {
       console.error('Error saving permissions:', error);
       alert('Failed to update permissions');
@@ -100,11 +92,10 @@ useEffect(() => {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3 }}
         >
-          {/* Header */}
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
               <FiSettings className="text-2xl text-purple-400" />
-              <h1 className="text-2xl font-bold">System Settings</h1>
+              <h1 className="text-2xl font-bold">Settings</h1>
             </div>
             <button 
               onClick={savePermissions}
@@ -114,7 +105,6 @@ useEffect(() => {
             </button>
           </div>
 
-          {/* Tabs */}
           <div className="flex border-b border-gray-700">
             <button
               className={`px-4 py-2 font-medium flex items-center gap-2 ${
@@ -128,7 +118,6 @@ useEffect(() => {
             </button>
           </div>
 
-          {/* Access Control Content */}
           {activeTab === 'accessControl' && (
             <div className="space-y-4">
               <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
@@ -143,11 +132,6 @@ useEffect(() => {
                   >
                     <div className="flex items-center gap-2">
                       <span className="font-semibold capitalize">{role}</span>
-                      {!config.editable && (
-                        <span className="text-xs text-purple-400 px-2 py-1 bg-purple-900/20 rounded-full">
-                          System Role
-                        </span>
-                      )}
                     </div>
                     <FiChevronDown className={`transform transition-transform ${
                       expandedRoles[role] ? 'rotate-180' : ''
@@ -163,21 +147,15 @@ useEffect(() => {
                             config.pages.includes(page)
                               ? 'bg-purple-600/20 border border-purple-400'
                               : 'bg-gray-600/20'
-                          } ${!config.editable ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          }`}
                         >
                           <input
                             type="checkbox"
                             checked={config.pages.includes(page)}
                             onChange={(e) => handlePermissionChange(role, page, e.target.checked)}
                             className="form-checkbox text-purple-400 rounded focus:ring-purple-400"
-                            disabled={!config.editable}
                           />
                           <span className="capitalize">{page}</span>
-                          {page === 'settings' && (
-                            <span className="text-xs text-purple-400 ml-2">
-                              (Admin only)
-                            </span>
-                          )}
                         </label>
                       ))}
                     </div>
@@ -190,7 +168,6 @@ useEffect(() => {
                   <FiCheckSquare /> Access Control Guidelines
                 </h3>
                 <ul className="list-disc list-inside space-y-2 text-gray-300">
-                  <li>System roles (marked with purple badge) cannot be modified</li>
                   <li>Changes take effect immediately after saving</li>
                   <li>The "Settings" page is always admin-only</li>
                   <li>New pages will automatically be restricted to admins</li>

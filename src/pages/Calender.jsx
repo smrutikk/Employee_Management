@@ -4,21 +4,17 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import { 
-  FaPlus, FaFilter, FaCheckCircle, FaTimesCircle, FaEdit, 
-  FaClock, FaUsers, FaCalendarDay, FaTag, FaEye, FaUser,
-  FaRepeat, FaRegClock
-} from 'react-icons/fa';
+import { FaPlus, FaFilter, FaCheckCircle, FaTimesCircle, FaEdit, FaClock, FaUsers, FaCalendarDay, FaTag, FaEye } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '../components/Navbar';
+import { navLinks } from '../components/navbarConfig';
 
 const CalendarPage = () => {
   const location = useLocation();
   const role = location.state?.role || { 
     role: 'Employee', 
-    department: 'General',
-    id: 'default-user',
-    email: 'user@company.com'
+    department: 'General', // Added default department
+    id: 'default-user' 
   };
 
   const [events, setEvents] = useState([]);
@@ -32,16 +28,9 @@ const CalendarPage = () => {
     categories: []
   });
 
-  // New state for event creation
-  const [isAllDay, setIsAllDay] = useState(false);
-  const [recurrence, setRecurrence] = useState('none');
-  const [selectedAttendees, setSelectedAttendees] = useState([]);
-
-  const mockAttendees = [
-    { id: 'emp1', name: 'John Doe', email: 'john@company.com' },
-    { id: 'emp2', name: 'Jane Smith', email: 'jane@company.com' },
-    { id: 'mgr1', name: 'Manager Bob', email: 'bob@company.com' },
-  ];
+  if (!role || !role.role) {
+    return <div className="p-6 text-red-500 font-semibold">User role is not loaded yet.</div>;
+  }
 
   useEffect(() => {
     const mockEvents = [
@@ -54,22 +43,20 @@ const CalendarPage = () => {
         category: 'professional',
         department: 'Engineering',
         organizerId: 'manager1',
-        attendees: ['emp1', 'emp2'],
+        attendees: ['employee1', 'employee2'],
         status: 'confirmed',
-        visibility: 'department',
-        recurrence: 'weekly',
-        allDay: false
+        visibility: 'department'
       },
       {
         id: 2,
-        title: 'Project Deadline',
-        start: new Date(new Date().setDate(new Date().getDate() + 3)),
+        title: 'Vacation Request',
+        start: new Date(new Date().setDate(new Date().getDate() + 5)),
         allDay: true,
-        type: 'deadline',
-        category: 'professional',
-        department: 'Marketing',
-        status: 'confirmed',
-        recurrence: 'none'
+        type: 'timeoff',
+        category: 'personal',
+        department: 'Engineering',
+        status: 'pending',
+        visibility: 'private'
       }
     ];
     setEvents(mockEvents);
@@ -82,256 +69,272 @@ const CalendarPage = () => {
     timeoff: '#F59E0B'
   };
 
+  const permissions = {
+    Admin: {
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+      canApprove: true,
+      viewScope: 'all'
+    },
+    Manager: {
+      canCreate: true,
+      canEdit: (event) => event.department === (role?.department || 'General'),
+      canDelete: (event) => event.department === (role?.department || 'General'),
+      canApprove: true,
+      viewScope: 'department'
+    },
+    Employee: {
+      canCreate: true,
+      canEdit: (event) => event.organizerId === role?.id,
+      canDelete: false,
+      canApprove: false,
+      viewScope: 'personal'
+    }
+  };
+
+  const currentPermissions = permissions[role.role] || permissions.Employee;
+
+  const handleDateSelect = (selectInfo) => {
+    if (!currentPermissions.canCreate) return;
+    setSelectedEvent({
+      start: selectInfo.start,
+      end: selectInfo.end,
+      allDay: selectInfo.allDay
+    });
+    setShowCreateModal(true);
+  };
+
   const handleEventSubmit = (newEvent) => {
     if (!selectedEvent) return;
     
     const eventWithPermissions = {
       ...newEvent,
-      id: Math.random().toString(36).substr(2, 9),
       start: selectedEvent.start,
       end: selectedEvent.end,
-      organizerId: role?.id,
-      organizerEmail: role?.email,
-      department: role.role === 'Admin' ? newEvent.department : role?.department,
-      status: role.role === 'Employee' ? 'pending' : 'confirmed',
-      category: newEvent.category || 'general',
-      recurrence: recurrence,
-      allDay: isAllDay,
-      attendees: selectedAttendees
+      organizerId: role?.id || 'unknown',
+      department: role.role === 'Admin' 
+        ? newEvent.department 
+        : role?.department || 'General',
+      status: (role.role === 'Employee' ? 'pending' : 'confirmed') || 'pending', // Default status
+      category: newEvent.category || 'general'
     };
     
     setEvents([...events, eventWithPermissions]);
     setShowCreateModal(false);
-    setIsAllDay(false);
-    setRecurrence('none');
-    setSelectedAttendees([]);
   };
 
-  // Enhanced Event Creation Modal
-  const EventCreationModal = () => (
+  const handleEventClick = (clickInfo) => {
+    const event = clickInfo.event.extendedProps;
+    const canEdit = typeof currentPermissions.canEdit === 'function'
+      ? currentPermissions.canEdit(event)
+      : currentPermissions.canEdit;
+
+    setSelectedEvent({
+      ...clickInfo.event,
+      canEdit,
+      canDelete: currentPermissions.canDelete
+    });
+  };
+
+  const handleApproval = (eventId, status) => {
+    setEvents(events.map(event =>
+      event.id === eventId ? { ...event, status } : event
+    ));
+  };
+
+  const filteredEvents = events.filter(event => {
+    const viewScopeFilter = currentPermissions.viewScope === 'all' ? true :
+      event.visibility === 'company' ? true :
+      currentPermissions.viewScope === 'department' ?
+        (event.department === (role?.department || 'General') || event.visibility === 'department') :
+        (event.organizerId === role?.id || event.attendees?.includes(role?.id));
+  
+    const departmentMatch = filters.departments.length === 0 || 
+      filters.departments.includes(event.department || 'General');
+    const typeMatch = filters.eventTypes.length === 0 || 
+      filters.eventTypes.includes(event.type);
+    const statusMatch = filters.statuses.length === 0 || 
+      filters.statuses.includes(event.status || 'pending'); // Fallback to 'pending'
+    const categoryMatch = role.role === 'Admin' ? 
+      (filters.categories.length === 0 || filters.statuses.includes(event.category)) : true;
+  
+    return viewScopeFilter && departmentMatch && typeMatch && statusMatch && categoryMatch;
+  });
+
+  const [isNavOpen, setIsNavOpen] = useState(true); 
+
+  const eventFormFields = (
+    <>
+      {role.role === 'Admin' && (
+        <>
+          <div>
+            <label className="block text-sm text-blue-200 mb-2">Department</label>
+            <select
+              name="department"
+              required
+              className="w-full bg-white/5 rounded-lg p-3 border border-white/10"
+            >
+              <option value="Engineering">Engineering</option>
+              <option value="Marketing">Marketing</option>
+              <option value="HR">Human Resources</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm text-blue-200 mb-2">Visibility</label>
+            <select
+              name="visibility"
+              required
+              className="w-full bg-white/5 rounded-lg p-3 border border-white/10"
+            >
+              <option value="department">Department</option>
+              <option value="company">Company</option>
+              <option value="private">Private</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm text-blue-200 mb-2">Category</label>
+            <select
+              name="category"
+              required
+              className="w-full bg-white/5 rounded-lg p-3 border border-white/10"
+            >
+              <option value="personal">Personal</option>
+              <option value="professional">Professional</option>
+              <option value="team">Team</option>
+            </select>
+          </div>
+        </>
+      )}
+    </>
+  );
+
+  // Add analytics section for Admin
+  const analyticsSection = role.role === 'Admin' && (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-center justify-center"
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-white/5 backdrop-blur-xl rounded-xl p-6 mb-6 border border-white/10 grid grid-cols-2 md:grid-cols-4 gap-4"
     >
-      <motion.div
-        initial={{ scale: 0.95 }}
-        animate={{ scale: 1 }}
-        className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-8 w-full max-w-md border border-white/10"
-      >
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold">Create New Event</h2>
-          <button 
-            onClick={() => setShowCreateModal(false)}
-            className="p-2 hover:bg-white/10 rounded-full"
-          >
-            <FaTimesCircle className="text-xl text-red-400" />
-          </button>
+      {/* Analytics cards */}
+    </motion.div>
+  );
+
+  
+  return (
+    <div className="h-screen w-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 text-white flex">
+  {/* Sidebar Navigation */}
+  <Navbar />
+
+  {/* Main Content Area */}
+  <div className="flex-1 p-6 overflow-auto">
+    <div className="max-w-7xl mx-auto">
+      {/* Header Section */}
+        <motion.div 
+          className="flex justify-between items-center mb-8"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
+            {role.role} Calendar
+          </h1>
+          <div className="flex gap-3">
+  {currentPermissions.canCreate && (
+    <motion.button
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      onClick={() => {
+        const now = new Date();
+        setSelectedEvent({
+          start: now,
+          end: new Date(now.getTime() + 60 * 60 * 1000),
+          allDay: false
+        });
+        setShowCreateModal(true);
+      }}
+      className="flex items-center gap-2 bg-gradient-to-br from-blue-600 to-purple-600 px-4 py-2 rounded-xl hover:shadow-lg transition-all"
+    >
+      <FaPlus className="text-lg" />
+      <span>New Event</span>
+    </motion.button>
+  )}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-xl hover:bg-white/20 border border-white/10"
+            >
+              <FaFilter className="text-lg" />
+              <span>Filters</span>
+            </motion.button>
+          </div>
+        </motion.div>
         </div>
 
-        <form onSubmit={(e) => {
-          e.preventDefault();
-          const formData = new FormData(e.target);
-          handleEventSubmit({
-            title: formData.get('title'),
-            type: formData.get('type'),
-            description: formData.get('description'),
-            category: formData.get('category'),
-            visibility: formData.get('visibility'),
-            department: formData.get('department')
-          });
-        }}>
-          <div className="space-y-4">
-            <div className="flex gap-4">
-              <div className="flex-1">
-                <label className="block text-sm text-blue-200 mb-2">Event Title</label>
-                <input
-                  name="title"
-                  required
-                  className="w-full bg-white/5 rounded-lg p-3 border border-white/10 focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+        {/* Filters Section */}
+        <AnimatePresence>
+          {showFilters && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="bg-white/5 backdrop-blur-xl rounded-xl p-6 mb-6 grid grid-cols-1 md:grid-cols-3 gap-4 border border-white/10"
+            >
+              {/* Departments Filter */}
               <div>
-                <label className="block text-sm text-blue-200 mb-2">Type</label>
+                <label className="block text-sm font-medium mb-2 text-blue-200">Departments</label>
                 <select
-                  name="type"
-                  required
-                  className="bg-white/5 rounded-lg p-3 border border-white/10"
+                  multiple
+                  className="w-full bg-white/5 rounded-lg p-2 text-white focus:ring-2 focus:ring-blue-500 border border-white/10"
+                  onChange={(e) => setFilters({ ...filters, departments: Array.from(e.target.selectedOptions, o => o.value) })}
+                  disabled={role.role === 'Employee'}
                 >
-                  <option value="meeting">Meeting</option>
-                  <option value="deadline">Deadline</option>
-                  <option value="training">Training</option>
+                  <option value="Engineering">Engineering</option>
+                  <option value="Marketing">Marketing</option>
+                  <option value="HR">Human Resources</option>
+                </select>
+              </div>
+
+              {/* Event Types Filter */}
+              <div>
+                <label className="block text-sm font-medium mb-2 text-blue-200">Event Types</label>
+                <select
+                  multiple
+                  className="w-full bg-white/5 rounded-lg p-2 text-white focus:ring-2 focus:ring-blue-500 border border-white/10"
+                  onChange={(e) => setFilters({ ...filters, eventTypes: Array.from(e.target.selectedOptions, o => o.value) })}
+                >
+                  <option value="meeting">Meetings</option>
+                  <option value="deadline">Deadlines</option>
                   {role.role !== 'Employee' && <option value="timeoff">Time Off</option>}
                 </select>
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-blue-200 mb-2">Start</label>
-                <input
-                  type="datetime-local"
-                  className="w-full bg-white/5 rounded-lg p-3 border border-white/10"
-                  defaultValue={selectedEvent?.start?.toISOString().slice(0, 16)}
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-blue-200 mb-2">End</label>
-                <input
-                  type="datetime-local"
-                  className="w-full bg-white/5 rounded-lg p-3 border border-white/10"
-                  defaultValue={selectedEvent?.end?.toISOString().slice(0, 16)}
-                  required
-                  disabled={isAllDay}
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={isAllDay}
-                  onChange={(e) => setIsAllDay(e.target.checked)}
-                  className="form-checkbox h-4 w-4 text-blue-500"
-                />
-                <span className="text-sm">All Day Event</span>
-              </label>
-              <div className="flex-1">
-                <label className="block text-sm text-blue-200 mb-2">Repeat</label>
-                <select
-                  value={recurrence}
-                  onChange={(e) => setRecurrence(e.target.value)}
-                  className="w-full bg-white/5 rounded-lg p-2 border border-white/10"
-                >
-                  <option value="none">Does not repeat</option>
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                </select>
-              </div>
-            </div>
-
-            {(role.role === 'Admin' || role.role === 'Manager') && (
-              <div>
-                <label className="block text-sm text-blue-200 mb-2">Attendees</label>
-                <select
-                  multiple
-                  value={selectedAttendees}
-                  onChange={(e) => setSelectedAttendees(Array.from(e.target.selectedOptions, o => o.value))}
-                  className="w-full bg-white/5 rounded-lg p-2 h-32 border border-white/10"
-                >
-                  {mockAttendees.map(attendee => (
-                    <option key={attendee.id} value={attendee.id}>
-                      {attendee.name} ({attendee.email})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {role.role === 'Admin' && (
-              <>
+              {/* Status Filter */}
+              {role.role !== 'Employee' && (
                 <div>
-                  <label className="block text-sm text-blue-200 mb-2">Department</label>
+                  <label className="block text-sm font-medium mb-2 text-blue-200">Status</label>
                   <select
-                    name="department"
-                    className="w-full bg-white/5 rounded-lg p-3 border border-white/10"
-                    defaultValue={role.department}
+                    multiple
+                    className="w-full bg-white/5 rounded-lg p-2 text-white focus:ring-2 focus:ring-blue-500 border border-white/10"
+                    onChange={(e) => setFilters({ ...filters, statuses: Array.from(e.target.selectedOptions, o => o.value) })}
                   >
-                    <option value="Engineering">Engineering</option>
-                    <option value="Marketing">Marketing</option>
-                    <option value="HR">Human Resources</option>
+                    <option value="pending">Pending</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="cancelled">Cancelled</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-sm text-blue-200 mb-2">Visibility</label>
-                  <select
-                    name="visibility"
-                    className="w-full bg-white/5 rounded-lg p-3 border border-white/10"
-                  >
-                    <option value="department">Department</option>
-                    <option value="company">Company</option>
-                    <option value="private">Private</option>
-                  </select>
-                </div>
-              </>
-            )}
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-            <div>
-              <label className="block text-sm text-blue-200 mb-2">Description</label>
-              <textarea
-                name="description"
-                rows="3"
-                className="w-full bg-white/5 rounded-lg p-3 border border-white/10"
-                placeholder="Add event details..."
-              />
-            </div>
-
-            <div className="flex justify-end gap-3 mt-6">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                type="button"
-                onClick={() => setShowCreateModal(false)}
-                className="px-6 py-2 bg-white/5 hover:bg-white/10 rounded-lg border border-white/10"
-              >
-                Cancel
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                type="submit"
-                className="px-6 py-2 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg hover:shadow-lg"
-              >
-                {selectedEvent?.id ? 'Update Event' : 'Create Event'}
-              </motion.button>
-            </div>
-          </div>
-        </form>
-      </motion.div>
-    </motion.div>
-  );
-
-  // Enhanced Event Display
-  const renderEventContent = (eventInfo) => (
-    <motion.div
-      whileHover={{ scale: 1.02 }}
-      className="p-2 m-1 rounded-lg backdrop-blur-sm cursor-pointer"
-      style={{
-        borderLeft: `4px solid ${eventTypeColors[eventInfo.event.extendedProps.type]}`,
-        background: 'linear-gradient(to right, rgba(255,255,255,0.05), rgba(255,255,255,0.02))'
-      }}
-    >
-      <div className="font-medium text-sm flex items-center gap-2">
-        {eventInfo.event.title}
-        {eventInfo.event.extendedProps.recurrence !== 'none' && (
-          <FaRepeat className="text-xs text-purple-300" />
-        )}
-      </div>
-      <div className="text-xs text-blue-200 mt-1 flex items-center gap-2">
-        <FaRegClock className="text-xs" />
-        {eventInfo.event.extendedProps.allDay ? 'All Day' : 
-          `${eventInfo.event.start?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
-          ${eventInfo.event.end?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-        }
-      </div>
-      {eventInfo.event.extendedProps.attendees?.length > 0 && (
-        <div className="text-xs text-green-300 mt-1 flex items-center gap-1">
-          <FaUser className="text-xs" />
-          {eventInfo.event.extendedProps.attendees.length} attendees
-        </div>
-      )}
-    </motion.div>
-  );
-
-  return (
-    <div className="h-screen w-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 text-white flex">
-      <Navbar />
-      <div className="flex-1 p-6 overflow-auto">
-        <div className="max-w-7xl mx-auto">
-          {/* Header and other existing components remain the same */}
-
+        {/* Calendar Container */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="bg-white/5 backdrop-blur-xl rounded-xl p-6 border border-white/10 shadow-2xl"
+        >
           <FullCalendar
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
             initialView="dayGridMonth"
@@ -344,61 +347,249 @@ const CalendarPage = () => {
             selectable={currentPermissions.canCreate}
             select={handleDateSelect}
             eventClick={handleEventClick}
-            eventContent={renderEventContent}
-          />
-
-          {/* Event Create Modal */}
-          <AnimatePresence>
-            {showCreateModal && <EventCreationModal />}
-          </AnimatePresence>
-
-          {/* Enhanced Event Detail Modal */}
-          {selectedEvent && (
-            <motion.div
-              className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-center justify-center"
-              /* ... existing motion props ... */
-            >
-              {/* ... existing modal structure ... */}
-              
-              <div className="space-y-4">
-                {/* Recurrence Info */}
-                {selectedEvent.extendedProps.recurrence !== 'none' && (
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center">
-                      <FaRepeat className="text-purple-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-blue-200">Recurrence</p>
-                      <p className="capitalize">{selectedEvent.extendedProps.recurrence}</p>
-                    </div>
-                  </div>
+            eventContent={(eventInfo) => (
+              <motion.div
+                whileHover={{ scale: 1.02 }}
+                className="p-2 m-1 rounded-lg backdrop-blur-sm"
+                style={{
+                  borderLeft: `4px solid ${eventTypeColors[eventInfo.event.extendedProps.type]}`,
+                  background: 'linear-gradient(to right, rgba(255,255,255,0.05), rgba(255,255,255,0.02))'
+                }}
+              >
+                <div className="font-medium text-sm">{eventInfo.event.title}</div>
+                {role.role !== 'Employee' && (
+                   <div className="text-xs text-blue-200 mt-1">
+                   {eventInfo.event.extendedProps.department || 'General'}
+                 </div>
                 )}
+                {eventInfo.event.extendedProps.status === 'pending' && (
+                  <div className="text-xs text-yellow-400 mt-1">
+                     {eventInfo.event.extendedProps.status || 'Pending Approval'}
+                 </div>
+                )}
+              </motion.div>
+            )}
+          />
+        </motion.div>
 
-                {/* Attendees List */}
-                {selectedEvent.extendedProps.attendees?.length > 0 && (
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center">
-                      <FaUsers className="text-green-400" />
-                    </div>
+        {/* Event Create/Edit Modal */}
+        <AnimatePresence>
+          {showCreateModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-center justify-center"
+            >
+              <motion.div
+                initial={{ scale: 0.95 }}
+                animate={{ scale: 1 }}
+                className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-8 w-full max-w-md border border-white/10"
+              >
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold">Create New Event</h2>
+                  <button 
+                    onClick={() => setShowCreateModal(false)}
+                    className="p-2 hover:bg-white/10 rounded-full"
+                  >
+                    <FaTimesCircle className="text-xl text-red-400" />
+                  </button>
+                </div>
+
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.target);
+                  handleEventSubmit({
+                    title: formData.get('title'),
+                    start: selectedEvent.start,
+                    end: selectedEvent.end,
+                    type: formData.get('type'),
+                    department: role.role === 'Admin' 
+                      ? formData.get('department') 
+                      : role.department,
+                    description: formData.get('description'),
+                    visibility: formData.get('visibility')
+                  });
+                }}>
+                  <div className="space-y-4">
                     <div>
-                      <p className="text-sm text-blue-200">Attendees</p>
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        {selectedEvent.extendedProps.attendees.map(attendee => (
-                          <span 
-                            key={attendee}
-                            className="px-2 py-1 bg-white/5 rounded-full text-xs"
-                          >
-                            {mockAttendees.find(a => a.id === attendee)?.name}
-                          </span>
-                        ))}
+                      <label className="block text-sm text-blue-200 mb-2">Event Title</label>
+                      <input
+                        name="title"
+                        required
+                        className="w-full bg-white/5 rounded-lg p-3 border border-white/10 focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    {role.role === 'Admin' && (
+        <div>
+          <label className="block text-sm font-medium mb-2 text-blue-200">Categories</label>
+          <select
+            multiple
+            className="w-full bg-white/5 rounded-lg p-2 text-white focus:ring-2 focus:ring-blue-500 border border-white/10"
+            onChange={(e) => setFilters({ ...filters, categories: Array.from(e.target.selectedOptions, o => o.value) })}
+          >
+            <option value="personal">Personal</option>
+            <option value="professional">Professional</option>
+            <option value="team">Team</option>
+          </select>
+        </div>
+      )}
+      
+      {/* Updated event display with category and visibility */}
+      <div className="flex items-center gap-3">
+  <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center">
+    <FaTag className="text-green-400" />
+  </div>
+  <div>
+    <p className="text-sm text-blue-200">Category</p>
+    <p>{selectedEvent?.extendedProps?.category || 'Not specified'}</p>
+  </div>
+</div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm text-blue-200 mb-2">Start Time</label>
+                        <input
+                          type="datetime-local"
+                          className="w-full bg-white/5 rounded-lg p-3 border border-white/10"
+                          defaultValue={selectedEvent?.start?.toISOString().slice(0, 16) || ''}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-blue-200 mb-2">End Time</label>
+                        <input
+                          type="datetime-local"
+                          className="w-full bg-white/5 rounded-lg p-3 border border-white/10"
+                          defaultValue={selectedEvent?.end?.toISOString().slice(0, 16) || ''}
+                          required
+                        />
                       </div>
                     </div>
+
+                    <div className="flex justify-end gap-3 mt-6">
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        type="button"
+                        onClick={() => setShowCreateModal(false)}
+                        className="px-6 py-2 bg-white/5 hover:bg-white/10 rounded-lg border border-white/10"
+                      >
+                        Cancel
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        type="submit"
+                        className="px-6 py-2 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg hover:shadow-lg"
+                      >
+                        Create Event
+                      </motion.button>
+                    </div>
                   </div>
-                )}
-              </div>
+                </form>
+              </motion.div>
             </motion.div>
           )}
+        </AnimatePresence>
+
+        {/* Event Detail Modal */}
+        <AnimatePresence>
+        {selectedEvent && (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-center justify-center"
+    >
+      <motion.div
+        initial={{ scale: 0.95 }}
+        animate={{ scale: 1 }}
+        className="bg-gradient-to-br from-gray-800 to-blue-900/30 rounded-2xl p-8 max-w-md w-full border border-white/10"
+      >
+        <div className="flex justify-between items-start mb-6">
+          <h2 className="text-2xl font-bold">{selectedEvent.title}</h2>
+          <button 
+            onClick={() => setSelectedEvent(null)}
+            className="p-2 hover:bg-white/10 rounded-full"
+          >
+            <FaTimesCircle className="text-xl text-red-400" />
+          </button>
         </div>
+
+        <div className="space-y-4">
+          {/* Date & Time */}
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
+              <FaCalendarDay className="text-blue-400" />
+            </div>
+            <div>
+              <p className="text-sm text-blue-200">Date & Time</p>
+              <p className="font-mono">
+                {selectedEvent.start?.toLocaleDateString()} •{' '}
+                {selectedEvent.start?.toLocaleTimeString()}
+              </p>
+            </div>
+          </div>
+
+          {/* Department - Corrected Section */}
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center">
+              <FaUsers className="text-purple-400" />
+            </div>
+            <div>
+              <p className="text-sm text-blue-200">Department</p>
+              <p>{selectedEvent?.extendedProps?.department || 'General'}</p>
+            </div>
+          </div>
+
+                  {selectedEvent.extendedProps.status === 'pending' && currentPermissions.canApprove && (
+                    <motion.div 
+                      className="bg-yellow-500/10 p-4 rounded-xl border border-yellow-500/30"
+                      initial={{ scale: 0.95 }}
+                      animate={{ scale: 1 }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1">
+                          <p className="text-sm text-yellow-300">Awaiting Approval</p>
+                          <p className="text-xs text-yellow-500/80">Submitted by {selectedEvent.extendedProps.organizer}</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            onClick={() => handleApproval(selectedEvent.id, 'confirmed')}
+                            className="px-4 py-2 bg-green-600/30 backdrop-blur-sm rounded-lg flex items-center gap-2 border border-green-500/30 hover:border-green-400/50"
+                          >
+                            <FaCheckCircle className="text-green-400" />
+                            <span>Approve</span>
+                          </motion.button>
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            onClick={() => handleApproval(selectedEvent.id, 'cancelled')}
+                            className="px-4 py-2 bg-red-600/30 backdrop-blur-sm rounded-lg flex items-center gap-2 border border-red-500/30 hover:border-red-400/50"
+                          >
+                            <FaTimesCircle className="text-red-400" />
+                            <span>Reject</span>
+                          </motion.button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {selectedEvent.canEdit && (
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      onClick={() => setShowCreateModal(true)}
+                      className="w-full py-3 bg-white/5 hover:bg-white/10 rounded-xl border border-white/10 flex items-center justify-center gap-2"
+                    >
+                      <FaEdit className="text-blue-400" />
+                      <span>Edit Event</span>
+                    </motion.button>
+                  )}
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
